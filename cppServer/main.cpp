@@ -7,6 +7,33 @@ int PickRoom(std::vector<World>& worlds) {
     return -1;
 }
 
+void RoutePacket(RecvPacket& p, std::vector<World>& worlds, UserManager& users) {
+    Session& s = g_sessions[p.sessionIndex];
+
+    if (p.id == PacketId::Connect) {
+        users.OnSessionOpened(p.sessionIndex);
+        return;
+    }
+
+    if (p.id == PacketId::Leave) {
+        users.OnSessionClosed(p.sessionIndex);
+        if (s.roomId >= 0) worlds[s.roomId].HandlePacket(p);
+        s.roomId = -1;
+        return;
+    }
+
+    if (p.id == PacketId::LoginReq || p.id == PacketId::SignupReq) {
+        users.HandlePacket(p);
+        return;
+    }
+
+    // Everything past this point requires a logged in session.
+    if (!users.IsAuthenticated(p.sessionIndex)) return;
+
+    if (p.id == PacketId::Join) s.roomId = PickRoom(worlds);
+    if (s.roomId >= 0) worlds[s.roomId].HandlePacket(p);
+}
+
 int main() {
     WSADATA wsa;
     WSAStartup(MAKEWORD(2, 2), &wsa);
@@ -44,7 +71,7 @@ int main() {
     }
     std::cout << "listening on port 5050...\n";
 
-    // IOCP ¿öÄ¿ ¾²·¹µå(ÄÚ¾î - 1)¿Í Á¢¼Ó ¾²·¹µå »ý¼º
+    // IOCP ï¿½ï¿½Ä¿ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½(ï¿½Ú¾ï¿½ - 1)ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
     for (unsigned int i = 0; i < n; i++)
         std::thread(workerThread).detach();
     std::thread (Accepter, listenSocket).detach();
@@ -55,34 +82,30 @@ int main() {
     std::vector<World> worlds(1);
     for (auto& w : worlds) w.Init();
 
-    // -- ¸ÞÀÎ ·çÇÁ ½ÃÀÛ --
+    UserManager users;
+
+    // -- ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ --
 
     std::vector<RecvPacket> buffer;
-    TickBenchmark bench; // º¥Ä¡¸¶Å©
-    auto lastReportTime = std::chrono::steady_clock::now(); // ¸¶Áö¸· °á°ú Ãâ·Â ½Ã°£
+    TickBenchmark bench; // ï¿½ï¿½Ä¡ï¿½ï¿½Å©
+    auto lastReportTime = std::chrono::steady_clock::now(); // ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½Ã°ï¿½
     bool measuring = false;
     auto benchStart = std::chrono::steady_clock::now();
-
-    std::cout << "gg \n";
 
     while (true) {
         auto tickStart = std::chrono::steady_clock::now();
 
-        // ÀÌº¥Æ® Å¥ ¹æ½Ä°ú ´õºí ¹öÆÛ ¹æ½Ä ºñ±³
+        // ï¿½Ìºï¿½Æ® Å¥ ï¿½ï¿½Ä°ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½
         #ifdef USE_EVENT_QUEUE
                 RecvPacket p;
                 while (g_recvQueue.Pop(p)) {
-                    Session& s = g_sessions[p.sessionIndex];
-                    if (p.id == PacketId::Join) s.roomId = PickRoom(worlds);
-                    if (s.roomId >= 0) worlds[s.roomId].HandlePacket(p);
+                    RoutePacket(p, worlds, users);
                 }
         #else
                 buffer.clear();
                 g_recvQueue.Swap(buffer); 
                 for (auto& p : buffer) {
-                    Session& s = g_sessions[p.sessionIndex];
-                    if (p.id == PacketId::Join) s.roomId = PickRoom(worlds);
-                    if (s.roomId >= 0) worlds[s.roomId].HandlePacket(p);
+                    RoutePacket(p, worlds, users);
                 }
         #endif
         auto ConsumeEnd = std::chrono::steady_clock::now();
@@ -96,9 +119,9 @@ int main() {
         if (!measuring && worlds[0].IsRunning()) {
             measuring = true;
             bench.reset();
-            benchStart = std::chrono::steady_clock::now(); // ¡Ú 120ÃÊ Å¸ÀÌ¸Ó ½ÃÀÛ ½ÃÁ¡ Àâ±â
+            benchStart = std::chrono::steady_clock::now(); // ï¿½ï¿½ 120ï¿½ï¿½ Å¸ï¿½Ì¸ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½
             lastReportTime = benchStart;
-            std::cout << "[Benchmark] 120ÃÊ°£ ÃøÁ¤À» ½ÃÀÛÇÕ´Ï´Ù...\n";
+            std::cout << "[Benchmark] 120ï¿½Ê°ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½ï¿½Õ´Ï´ï¿½...\n";
         }
 
         auto tickEnd = std::chrono::steady_clock::now();
@@ -107,8 +130,10 @@ int main() {
         if (measuring) {
             bench.tickCount++;
             bench.totalTime += duration;
+            bench.samples.push_back(duration);
+            if (duration > (long long)TICK_MS * 1'000'000) bench.missCount++;
             if (duration > bench.maxTime) bench.maxTime = duration;
-            if (bench.minTime == 0 || duration < bench.minTime) bench.minTime = duration; // minTimeÀÌ 0ÀÏ ¶§ ¹æ¾î¹® Ãß°¡
+            if (bench.minTime == 0 || duration < bench.minTime) bench.minTime = duration; // minTimeï¿½ï¿½ 0ï¿½ï¿½ ï¿½ï¿½ ï¿½ï¿½î¹® ï¿½ß°ï¿½
         }
 
         if (measuring && tickStart - lastReportTime >= std::chrono::seconds(3)) {
@@ -121,8 +146,8 @@ int main() {
                 currentMemMb = pmc.WorkingSetSize / (1024 * 1024);
             }
 
-            std::cout << "[Live Monitor] ÁøÇàÁß... ÇöÀç Æò±Õ Æ½: " << avgMs << " ms | ÃÖ°í Æ½: " << maxMs << " ms | ¸Þ¸ð¸®: " << currentMemMb << " MB\n";
-            lastReportTime = tickStart; // ´ÙÀ½ 3ÃÊ Ã¼Å©¿ë
+            std::cout << "[Live Monitor] ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½... ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ Æ½: " << avgMs << " ms | ï¿½Ö°ï¿½ Æ½: " << maxMs << " ms | ï¿½Þ¸ï¿½: " << currentMemMb << " MB\n";
+            lastReportTime = tickStart; // ï¿½ï¿½ï¿½ï¿½ 3ï¿½ï¿½ Ã¼Å©ï¿½ï¿½
         }
 
         if (measuring && tickStart - benchStart >= std::chrono::seconds(120)) {
@@ -130,6 +155,10 @@ int main() {
             double maxMs = bench.maxTime / 1'000'000.0;
             double minMs = bench.minTime / 1'000'000.0;
             double avgCMs = (bench.totalConsumeTime / (double)bench.tickCount) / 1'000'000.0;
+            double p50Ms = bench.percentile(50) / 1'000'000.0;
+            double p95Ms = bench.percentile(95) / 1'000'000.0;
+            double p99Ms = bench.percentile(99) / 1'000'000.0;
+            double missRate = bench.tickCount ? (bench.missCount * 100.0 / bench.tickCount) : 0.0;
 
             PROCESS_MEMORY_COUNTERS pmc;
             double currentMemMb = 0.0;
@@ -143,8 +172,12 @@ int main() {
                 << " [FINAL BENCHMARK RESULT (120 Seconds)] \n"
                 << " - Total Ticks      : " << bench.tickCount << " ticks\n"
                 << " - Avg Tick Time    : " << avgMs << " ms\n"
+                << " - p50 Tick Time    : " << p50Ms << " ms\n"
+                << " - p95 Tick Time    : " << p95Ms << " ms\n"
+                << " - p99 Tick Time    : " << p99Ms << " ms\n"
                 << " - Max Tick Time    : " << maxMs << " ms\n"
                 << " - Min Tick Time    : " << minMs << " ms\n"
+                << " - Deadline Miss    : " << bench.missCount << " ticks (" << missRate << " % over " << TICK_MS << "ms)\n"
                 << " - Avg Consume Time   : " << avgCMs << " ms\n"
                 << " - Memory Usage     : " << currentMemMb << " MB (Peak: " << peakMemMb << " MB)\n"
                 << "======================================================\n" << std::endl;

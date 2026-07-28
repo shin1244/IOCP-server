@@ -105,8 +105,8 @@ void Accepter(SOCKET s) {
 
         RecvPacket rp;
         rp.sessionIndex = index;
-        rp.id = PacketId::Join;
-        g_recvQueue.Push(rp);
+        rp.id = PacketId::Connect;
+        g_recvQueue.Push(std::move(rp));
 
         postRecv(session);
     }

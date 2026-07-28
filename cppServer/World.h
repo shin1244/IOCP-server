@@ -2,10 +2,8 @@
 #include"Player.h"
 #include"Bullet.h"
 #include"Item.h"
-#include<iostream>
 #include"Protocol.h"
 #include"NetworkCore.h"
-#include"ObjectPool.h"
 #include"Map.h"
 #include"SpatialGrid.h"
 

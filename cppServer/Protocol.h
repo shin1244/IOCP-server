@@ -1,6 +1,9 @@
 #pragma once
 #include<vector>
 
+constexpr int MAX_USERNAME = 32;
+constexpr int MAX_PASSWORD = 64;
+
 #pragma pack(push, 1)
 struct PacketHeader { unsigned short size; unsigned short id; };
 
@@ -27,8 +30,29 @@ struct Vec2Packet {
     float x;
     float y;
 };
+
+// RecvPacket::body holds everything after the header, so the server parses
+// AuthReqBody while the client sends the full AuthReq.
+struct AuthReqBody {
+    char username[MAX_USERNAME];
+    char password[MAX_PASSWORD];
+};
+
+struct AuthReq {
+    PacketHeader h;
+    AuthReqBody body;
+};
+
+struct AuthRes {
+    PacketHeader h;
+    unsigned short result;
+    int accountId;
+};
 #pragma pack(pop)
 
+enum class AuthResult : unsigned short { 
+	Ok, IdNotFound, WrongPassword, DuplicateId, AlreadyLoggedIn 
+};
 enum class PacketId : unsigned short {
     Connect,
     Disconnect,
@@ -48,6 +72,10 @@ enum class PacketId : unsigned short {
     End,
     RemoveItem,
     PlayerStats,
+    LoginReq,
+    SignupReq,
+    LoginRes,
+    SignupRes,
 };
 
 const int HEADER_SIZE = 4;
