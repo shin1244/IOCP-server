@@ -799,8 +799,8 @@ func main() {
 		myID:         -1,
 		spectateID:   -1,
 		winnerID:     -1,
-		moveSpeed:    300.0,  // 서버 Player 초기값과 동일
-		fireInterval: 0.25,   // 서버 Player 초기값과 동일
+		moveSpeed:    300.0, // 서버 Player 초기값과 동일
+		fireInterval: 0.25,  // 서버 Player 초기값과 동일
 		fog:          makeFog(),
 	}
 

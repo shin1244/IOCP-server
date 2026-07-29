@@ -111,13 +111,13 @@ void World::HandleObserve(RecvPacket& packet) {
 void World::TryStartMatch() {
     if (running) return;
     for (int i = 0; i < MAX_PLAYERS; i++) {
-        std::cout << i << "\n";
         if (slots[i].state == SlotState::Empty) return;
     }
     for (int i = 0; i < MAX_PLAYERS; i++) {
         slots[i].state = SlotState::Playing;
     }
 
+    std::cout << "!!!!!!!START!!!!!"<< "\n";
     running = true;
     BroadcastMapSnapshot();
 }

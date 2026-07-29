@@ -83,7 +83,7 @@ void Accepter(SOCKET s) {
             std::cout << "accept failed: " << WSAGetLastError() << "\n";
             continue;
         }
-        std::cout << "client connected! socket=" << clientSocket << "\n";
+        //std::cout << "client connected! socket=" << clientSocket << "\n";
 
 
         int index = g_sessions.Alloc();
@@ -105,7 +105,7 @@ void Accepter(SOCKET s) {
 
         RecvPacket rp;
         rp.sessionIndex = index;
-        rp.id = PacketId::Connect;
+        rp.id = PacketId::Join;
         g_recvQueue.Push(std::move(rp));
 
         postRecv(session);
