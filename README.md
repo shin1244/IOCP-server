@@ -1,5 +1,9 @@
 # IOCP 기반 실시간 대전 게임 서버
 
+벤치마킹 (IOCP/링버퍼/더블스왑버퍼)
+<img width="292" height="445" alt="image" src="https://github.com/user-attachments/assets/ef9898ee-ea25-48f1-b4ef-917182e6a6c0" />
+
+
 Windows **IOCP**로 구현한 C++ 멀티스레드 게임 서버입니다. 실시간 top-down 슈팅 게임을 돌리면서, 서버 설계에서 마주치는 **핵심 선택 3가지를 각각 두 방식으로 직접 구현하고 실측 비교**하는 데 목적을 뒀습니다.
 
 **기술 스택**: C++17 · Winsock2 IOCP · Go 클라이언트/부하봇
