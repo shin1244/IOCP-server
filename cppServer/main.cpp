@@ -87,6 +87,7 @@ int main() {
         for (auto& w : worlds) {
             w.Update(TICK_DT);
         }
+        FlushPending();   // 이번 틱에 쌓인 송신을 세션당 1회로 몰아서 전송
 
         auto tickEnd = std::chrono::steady_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(tickEnd - tickStart).count();
@@ -117,6 +118,7 @@ int main() {
                 " [ Tick Benchmark Report (Last 60s) ]   \n"
                 "----------------------------------------\n"
                 " Total Ticks : {:>10}\n"
+                " Avg         : {:>10.3f} ms\n"
                 " P50         : {:>10.3f} ms\n"
                 " P99         : {:>10.3f} ms\n"
                 " P99.9       : {:>10.3f} ms\n"

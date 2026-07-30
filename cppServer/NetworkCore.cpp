@@ -188,3 +188,32 @@ void OnRecvBytes(Session* s, int bytes) {
         g_recvQueue.Push(std::move(rp));
     }
 }
+
+// ---- 배치 송신 (게임 스레드 전용) -----------------------------------------
+// 이번 틱에 보낼 데이터가 쌓인 세션 인덱스. 게임 스레드만 접근하므로 락 불필요.
+static std::vector<int> g_pendingSend;
+
+// 틱 도는 동안엔 버퍼에 쓰기만 하고 세션을 "보낼 목록"에 한 번만 등록한다.
+// 실제 WSASend/ send 는 틱 끝(FlushPending)에 세션당 딱 한 번만 일어난다.
+void queueSend(Session* s, const char* data, int len) {
+    s->sendLock.lock();
+    s->sendBuffer.Write(data, len);
+    s->sendLock.unlock();
+
+    if (!s->sendDirty) {          // 세션당 한 번만 등록 (중복 방지)
+        s->sendDirty = true;
+        g_pendingSend.push_back(s->index);
+    }
+}
+
+// 틱 끝에 한 번: 쌓인 세션마다 flushSend 를 딱 한 번씩 → 세션당 1회 전송으로 코얼레싱.
+void FlushPending() {
+    for (int idx : g_pendingSend) {
+        Session* s = &g_sessions[idx];
+        s->sendDirty = false;
+        s->sendLock.lock();
+        flushSend(s);
+        s->sendLock.unlock();
+    }
+    g_pendingSend.clear();
+}

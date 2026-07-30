@@ -152,22 +152,12 @@ void World::Broadcast(const char* packet, int len) {
     for (int i = 0; i < MAX_PLAYERS; ++i) {
         if (slots[i].state == SlotState::Empty) continue;
         int idx = slots[i].sessionIndex;
-        Session* s = &g_sessions[idx];
-
-        s->sendLock.lock();
-        s->sendBuffer.Write(packet, len);
-        flushSend(s);
-        s->sendLock.unlock();
+        queueSend(&g_sessions[idx], packet, len);   // 버퍼에만 쌓음 (전송은 틱 끝에)
     }
 }
 
 void World::SendTo(int idx, const char* packet, int len) {
     if (slots[idx].state == SlotState::Empty) return;
     int sessionIndex = slots[idx].sessionIndex;
-    Session* s = &g_sessions[sessionIndex];
-
-    s->sendLock.lock();
-    s->sendBuffer.Write(packet, len);
-    flushSend(s);
-    s->sendLock.unlock();
+    queueSend(&g_sessions[sessionIndex], packet, len);
 }

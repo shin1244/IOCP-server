@@ -14,7 +14,7 @@
 
 // #define USE_EVENT_QUEUE
 // #define USE_VECTER_BUFFER
-// #define USE_POLLING 
+#define USE_POLLING 
 
 struct Session {
     SOCKET socket;
@@ -30,6 +30,7 @@ struct Session {
 #endif
 
     bool sendPending;
+    bool sendDirty = false;   // 이번 틱에 보낼 데이터가 쌓였는지 (배치 송신용)
     std::mutex sendLock;
 
     OVERLAPPED recvOverlapped;
@@ -58,3 +59,7 @@ void flushSend(Session*);
 void CloseSession(Session*);
 void OnRecvBytes(Session* s, int bytes);
 void PollServer(SOCKET);
+
+// 배치 송신: 틱 동안엔 queueSend 로 버퍼에만 쌓고, 틱 끝에 FlushPending 으로 세션당 1회 전송.
+void queueSend(Session* s, const char* data, int len);
+void FlushPending();
