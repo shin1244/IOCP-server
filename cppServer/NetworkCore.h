@@ -13,6 +13,7 @@
 
 //#define USE_EVENT_QUEUE
 //#define USE_VECTER_BUFFER
+#define USE_POLLING 
 
 struct Session {
     SOCKET socket;
@@ -49,7 +50,9 @@ extern std::stack<int> g_freeIndices;
 #endif
 
 void workerThread();
-void Accepter(SOCKET listenSocket);
+void Accepter(SOCKET);
 void postRecv(Session*);
 void postSend(Session*, const char*, int);
 void flushSend(Session*);
+void OnRecvBytes(Session* s, int bytes);
+void PollServer(SOCKET);

@@ -12,16 +12,6 @@ int main() {
     WSAStartup(MAKEWORD(2, 2), &wsa);
     std::cout << "Winsock ready\n";
 
-    g_iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
-    if (g_iocp == NULL) {
-        std::cout << "CreateIoCompletionPort failed: " << GetLastError() << "\n";
-        return 1;
-    }
-    std::cout << "IOCP created\n";
-
-    unsigned int n = std::thread::hardware_concurrency() - 1;
-    std::cout << "spawning " << n << " worker threads\n";
-
     SOCKET listenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (listenSocket == INVALID_SOCKET) {
         std::cout << "socket failed: " << WSAGetLastError() << "\n";
@@ -43,10 +33,26 @@ int main() {
     }
     std::cout << "listening on port 5050...\n";
 
+#ifndef USE_POLLING
+    g_iocp = CreateIoCompletionPort(INVALID_HANDLE_VALUE, NULL, 0, 0);
+    if (g_iocp == NULL) {
+        std::cout << "CreateIoCompletionPort failed: " << GetLastError() << "\n";
+        return 1;
+    }
+    std::cout << "IOCP created\n";
+
+    unsigned int n = std::thread::hardware_concurrency();
+    std::cout << "spawning " << n << " worker threads\n";
+
     // IOCP 워커 쓰레드(코어 수)와 접속 쓰레드 생성
     for (unsigned int i = 0; i < n; i++)
         std::thread(workerThread).detach();
     std::thread (Accepter, listenSocket).detach();
+#else
+    std::cout << "polling server\n";
+    std::thread(PollServer, listenSocket).detach();
+#endif
+
 
     constexpr int   TICK_MS = 33;    
     constexpr float TICK_DT = TICK_MS / 1000.0f;

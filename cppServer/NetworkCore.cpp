@@ -10,6 +10,8 @@ EventQueue<RecvPacket> g_recvQueue;
 DoubleBuffer<RecvPacket> g_recvQueue;
 #endif
 
+#ifndef USE_POLLING
+
 void workerThread() {
     while (true) {
         DWORD bytesTransferred = 0;
@@ -40,27 +42,8 @@ void workerThread() {
 
                 continue;
             }
-            session->recvBuffer.OnWrite(bytesTransferred);
 
-            while (true) {
-                if (session->recvBuffer.GetUsedSize() < HEADER_SIZE) break;
-
-                PacketHeader header;
-                session->recvBuffer.Peek((char*)&header, HEADER_SIZE);
-
-                if (session->recvBuffer.GetUsedSize() < header.size) break;
-
-                char packet[4096];
-                session->recvBuffer.Peek(packet, header.size);
-                session->recvBuffer.OnRead(header.size);
-
-                RecvPacket recvPacket;
-                recvPacket.sessionIndex = session->index;
-                recvPacket.id = static_cast<PacketId>(header.id);
-                recvPacket.body.assign(packet + HEADER_SIZE, packet + header.size);
-
-                g_recvQueue.Push(std::move(recvPacket));
-            }
+            OnRecvBytes(session, bytesTransferred);
             postRecv(session);
         }
         else if (overlapped == &session->sendOverlapped) {
@@ -177,4 +160,25 @@ void postSend(Session* session, const char* data, int len)
 {
     session->sendBuffer.Write(data, len);
     flushSend(session);
+}
+
+#endif
+
+
+void OnRecvBytes(Session* s, int bytes) {
+    s->recvBuffer.OnWrite(bytes);
+    while (true) {
+        if (s->recvBuffer.GetUsedSize() < HEADER_SIZE) break;
+        PacketHeader header;
+        s->recvBuffer.Peek((char*)&header, HEADER_SIZE);
+        if (s->recvBuffer.GetUsedSize() < header.size) break;
+        char packet[4096];
+        s->recvBuffer.Peek(packet, header.size);
+        s->recvBuffer.OnRead(header.size);
+        RecvPacket rp;
+        rp.sessionIndex = s->index;
+        rp.id = static_cast<PacketId>(header.id);
+        rp.body.assign(packet + HEADER_SIZE, packet + header.size);
+        g_recvQueue.Push(std::move(rp));
+    }
 }

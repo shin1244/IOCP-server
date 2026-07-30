@@ -20,6 +20,7 @@
 #pragma comment(lib, "psapi.lib")
 
 //#define USE_EVENT_QUEUE
+#define USE_POLLING
 
 HANDLE g_iocp;   // IOCP �ڵ�
 
