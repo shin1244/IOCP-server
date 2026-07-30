@@ -19,10 +19,7 @@
 #include <psapi.h>
 #pragma comment(lib, "psapi.lib")
 
-//#define USE_EVENT_QUEUE
-#define USE_POLLING
-
-HANDLE g_iocp;   // IOCP �ڵ�
+HANDLE g_iocp;   // IOCP 핸들러
 
 struct TickBenchmark {
     std::vector<long long> samples;

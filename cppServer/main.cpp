@@ -57,7 +57,7 @@ int main() {
     constexpr int   TICK_MS = 33;    
     constexpr float TICK_DT = TICK_MS / 1000.0f;
 
-    std::vector<World> worlds(4);
+    std::vector<World> worlds(50);
     for (auto& w : worlds) w.Init();
 
     std::vector<RecvPacket> buffer;

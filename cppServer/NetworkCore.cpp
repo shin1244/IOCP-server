@@ -2,7 +2,7 @@
 #include"Protocol.h"
 #include"ObjectPool.h"
 
-ObjectPool<Session, 1000> g_sessions;
+ObjectPool<Session, 5000> g_sessions;
 
 #ifdef USE_EVENT_QUEUE
 EventQueue<RecvPacket> g_recvQueue;
@@ -11,6 +11,20 @@ DoubleBuffer<RecvPacket> g_recvQueue;
 #endif
 
 #ifndef USE_POLLING
+
+// 모든 종료를 한 곳으로 모은다. 여러 스레드가 동시에 들어와도
+// exchange 로 첫 호출만 실제 정리하고 나머지는 즉시 반환(멱등).
+void CloseSession(Session* session) {
+    if (!session->connected.exchange(false)) return;   // 이미 닫힘
+
+    closesocket(session->socket);
+    session->socket = INVALID_SOCKET;
+
+    RecvPacket rp;                     // 월드가 슬롯을 비우도록 Leave 통지
+    rp.sessionIndex = session->index;
+    rp.id = PacketId::Leave;
+    g_recvQueue.Push(std::move(rp));
+}
 
 void workerThread() {
     while (true) {
@@ -29,17 +43,13 @@ void workerThread() {
         Session* session = (Session*)completionKey;
 
         if (!ok) {
-            std::cout << "[session " << session->socket << "] Disconnect\n";
+            CloseSession(session);
             continue;
         }
 
         if (overlapped == &session->recvOverlapped) {
             if (bytesTransferred == 0) {
-                RecvPacket recvPacket;
-                recvPacket.sessionIndex = session->index;
-                recvPacket.id = PacketId::Leave;
-                g_recvQueue.Push(std::move(recvPacket));
-
+                CloseSession(session);
                 continue;
             }
 
@@ -66,7 +76,6 @@ void Accepter(SOCKET s) {
             std::cout << "accept failed: " << WSAGetLastError() << "\n";
             continue;
         }
-        //std::cout << "client connected! socket=" << clientSocket << "\n";
 
 
         int index = g_sessions.Alloc();
@@ -120,14 +129,13 @@ void postRecv(Session* session)
     if (ret == SOCKET_ERROR) {
         int err = WSAGetLastError();
         if (err != WSA_IO_PENDING) {
-            std::cout << "WSARecv failed: " << err << "\n";
-            g_sessions.Free(session->index);
-            closesocket(session->socket);
+            CloseSession(session);
         }
     }
 }
 
 void flushSend(Session* session) {
+    if (!session->connected) return;
     if (session->sendPending) return;
     int used = session->sendBuffer.GetLinearUsedSize();
     if (used == 0) return;
@@ -148,10 +156,8 @@ void flushSend(Session* session) {
     if (ret == SOCKET_ERROR) {
         int err = WSAGetLastError();
         if (err != WSA_IO_PENDING) {
-            std::cout << "WSASend failed: " << err << "\n";
             session->sendPending = false;
-            g_sessions.Free(session->index);
-            closesocket(session->socket);
+            CloseSession(session);
         }
     }
 }

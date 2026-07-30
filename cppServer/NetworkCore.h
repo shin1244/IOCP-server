@@ -1,6 +1,7 @@
 #pragma once
 #include <winsock2.h>
 #include <mutex>
+#include <atomic>
 #include <stack>
 #include <iostream>
 #include "RingBuffer.h"
@@ -11,9 +12,9 @@
 #include "ObjectPool.h"
 #pragma comment(lib, "ws2_32.lib")
 
-//#define USE_EVENT_QUEUE
-//#define USE_VECTER_BUFFER
-#define USE_POLLING 
+// #define USE_EVENT_QUEUE
+// #define USE_VECTER_BUFFER
+// #define USE_POLLING 
 
 struct Session {
     SOCKET socket;
@@ -36,11 +37,11 @@ struct Session {
     WSABUF recvWsaBuf;
     WSABUF sendWsaBuf;
 
-    bool connected;
+    std::atomic<bool> connected;
 };
 
 extern HANDLE g_iocp;
-extern ObjectPool<Session, 1000> g_sessions;
+extern ObjectPool<Session, 5000> g_sessions;
 extern std::stack<int> g_freeIndices;
 
 #ifdef USE_EVENT_QUEUE
@@ -54,5 +55,6 @@ void Accepter(SOCKET);
 void postRecv(Session*);
 void postSend(Session*, const char*, int);
 void flushSend(Session*);
+void CloseSession(Session*);
 void OnRecvBytes(Session* s, int bytes);
 void PollServer(SOCKET);
