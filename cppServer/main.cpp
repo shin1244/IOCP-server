@@ -57,7 +57,7 @@ int main() {
     constexpr int   TICK_MS = 33;    
     constexpr float TICK_DT = TICK_MS / 1000.0f;
 
-    std::vector<World> worlds(50);
+    std::vector<World> worlds(5);
     for (auto& w : worlds) w.Init();
 
     std::vector<RecvPacket> buffer;
@@ -73,6 +73,7 @@ int main() {
             Session& s = g_sessions[p.sessionIndex];
             if (p.id == PacketId::Join) s.roomId = PickRoom(worlds);
             if (s.roomId >= 0) worlds[s.roomId].HandlePacket(p);
+            if (p.id == PacketId::Leave) g_sessions.Free(p.sessionIndex);
         }
 #else
         buffer.clear();
@@ -81,51 +82,57 @@ int main() {
             Session& s = g_sessions[p.sessionIndex];
             if (p.id == PacketId::Join) s.roomId = PickRoom(worlds);
             if (s.roomId >= 0) worlds[s.roomId].HandlePacket(p);
+            if (p.id == PacketId::Leave) g_sessions.Free(p.sessionIndex);
         }
 #endif
 
         for (auto& w : worlds) {
             w.Update(TICK_DT);
         }
-        FlushPending();   // 이번 틱에 쌓인 송신을 세션당 1회로 몰아서 전송
 
+        auto simEnd = std::chrono::steady_clock::now();
         auto tickEnd = std::chrono::steady_clock::now();
+
+        auto simDur   = std::chrono::duration_cast<std::chrono::nanoseconds>(simEnd - tickStart).count();
+        auto flushDur = std::chrono::duration_cast<std::chrono::nanoseconds>(tickEnd - simEnd).count();
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(tickEnd - tickStart).count();
         bench.samples.push_back(duration);
+        bench.simSamples.push_back(simDur);
+        bench.flushSamples.push_back(flushDur);
         bench.tickCount++;
         bench.totalTime += duration;
 
         // --- 60초마다 벤치마크 결과 출력 ---
         if (tickEnd - lastReportTime >= std::chrono::seconds(60)) {
-            auto& s = bench.samples;
-            std::sort(s.begin(), s.end());
+            auto report = [](const char* label, std::vector<long long>& v) {
+                if (v.empty()) return;
+                std::sort(v.begin(), v.end());
+                auto pct = [&](double p) {
+                    size_t idx = (size_t)(v.size() * p);
+                    if (idx >= v.size()) idx = v.size() - 1;
+                    return v[idx] / 1'000'000.0;
+                    };
+                long long sum = 0;
+                for (long long x : v) sum += x;
+                double avgMs = (sum / (double)v.size()) / 1'000'000.0;
 
-            auto pct = [&](double p) {
-                // size*p 인덱스, 경계 방어
-                size_t idx = (size_t)(s.size() * p);
-                if (idx >= s.size()) idx = s.size() - 1;
-                return s[idx] / 1'000'000.0;
+                std::cout << std::format(
+                    " {:<6} | avg {:>8.3f} | p50 {:>8.3f} | p99 {:>8.3f} | p99.9 {:>8.3f} | max {:>8.3f}\n",
+                    label, avgMs, pct(0.50), pct(0.99), pct(0.999), v.back() / 1'000'000.0
+                );
                 };
 
-            double avgMs = (bench.totalTime / (double)bench.tickCount) / 1'000'000.0;
-            double p50 = pct(0.50);
-            double p99 = pct(0.99);
-            double p999 = pct(0.999);
-            double maxMs = s.back() / 1'000'000.0;
-
             std::cout << std::format(
-                "\n========================================\n"
-                " [ Tick Benchmark Report (Last 60s) ]   \n"
-                "----------------------------------------\n"
-                " Total Ticks : {:>10}\n"
-                " Avg         : {:>10.3f} ms\n"
-                " P50         : {:>10.3f} ms\n"
-                " P99         : {:>10.3f} ms\n"
-                " P99.9       : {:>10.3f} ms\n"
-                " Max Time    : {:>10.3f} ms\n"
-                "========================================\n\n",
-                bench.tickCount, avgMs, p50, p99, p999, maxMs
+                "\n=================================================================================\n"
+                " [ Tick Benchmark Report (Last 60s) ]   Total Ticks : {}   (unit: ms)\n"
+                "---------------------------------------------------------------------------------\n",
+                bench.tickCount
             );
+            report("total", bench.samples);        // 틱 전체
+            report("sim",   bench.simSamples);      // 시뮬레이션만 (recv 드레인 + Update)
+            report("flush", bench.flushSamples);    // 네트워크 flush만 (FlushPending)
+            std::cout << "=================================================================================\n\n";
+
             bench.reset();
             lastReportTime = tickEnd;
         }

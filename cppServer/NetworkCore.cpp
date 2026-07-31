@@ -2,7 +2,7 @@
 #include"Protocol.h"
 #include"ObjectPool.h"
 
-ObjectPool<Session, 5000> g_sessions;
+ObjectPool<Session, 7000> g_sessions;
 
 #ifdef USE_EVENT_QUEUE
 EventQueue<RecvPacket> g_recvQueue;
@@ -190,7 +190,6 @@ void OnRecvBytes(Session* s, int bytes) {
 }
 
 // ---- 배치 송신 (게임 스레드 전용) -----------------------------------------
-// 이번 틱에 보낼 데이터가 쌓인 세션 인덱스. 게임 스레드만 접근하므로 락 불필요.
 static std::vector<int> g_pendingSend;
 
 // 틱 도는 동안엔 버퍼에 쓰기만 하고 세션을 "보낼 목록"에 한 번만 등록한다.

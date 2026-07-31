@@ -12,9 +12,9 @@
 #include "ObjectPool.h"
 #pragma comment(lib, "ws2_32.lib")
 
-// #define USE_EVENT_QUEUE
+#define USE_EVENT_QUEUE
 // #define USE_VECTER_BUFFER
-#define USE_POLLING 
+// #define USE_POLLING 
 
 struct Session {
     SOCKET socket;
@@ -42,7 +42,7 @@ struct Session {
 };
 
 extern HANDLE g_iocp;
-extern ObjectPool<Session, 5000> g_sessions;
+extern ObjectPool<Session, 7000> g_sessions;
 extern std::stack<int> g_freeIndices;
 
 #ifdef USE_EVENT_QUEUE
