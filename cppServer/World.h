@@ -47,7 +47,7 @@ public:
 private:
     static const int W = 100;
     static const int Y = 100;
-    static const int WALL = 1000;
+    static const int WALL = 400;
     static const int SEED = 1234;
     static constexpr float PLAYER_RADIUS = 10.0f;
     static constexpr float BULLET_RADIUS = 4.0f;

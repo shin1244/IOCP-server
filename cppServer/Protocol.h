@@ -72,10 +72,6 @@ enum class PacketId : unsigned short {
     End,
     RemoveItem,
     PlayerStats,
-    LoginReq,
-    SignupReq,
-    LoginRes,
-    SignupRes,
 };
 
 const int HEADER_SIZE = 4;

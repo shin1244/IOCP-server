@@ -12,7 +12,7 @@
 #include "ObjectPool.h"
 #pragma comment(lib, "ws2_32.lib")
 
-#define USE_EVENT_QUEUE
+// #define USE_EVENT_QUEUE
 // #define USE_VECTER_BUFFER
 // #define USE_POLLING 
 

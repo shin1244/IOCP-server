@@ -57,12 +57,15 @@ int main() {
     constexpr int   TICK_MS = 33;    
     constexpr float TICK_DT = TICK_MS / 1000.0f;
 
-    std::vector<World> worlds(5);
+    std::vector<World> worlds(1);
     for (auto& w : worlds) w.Init();
 
     std::vector<RecvPacket> buffer;
     TickBenchmark bench; // 벤치마크
     auto lastReportTime = std::chrono::steady_clock::now(); // 마지막 결과 출력 시간
+    auto lastTickLog = std::chrono::steady_clock::now();    // 3초마다 간략 벤치마크
+    long long totalTicks = 0;                               // 시작 이후 누적 틱 수
+    std::vector<long long> win3;                            // 3초 창: 틱 전체 시간(ns)
 
     while (true) {
         auto tickStart = std::chrono::steady_clock::now();
@@ -91,6 +94,9 @@ int main() {
         }
 
         auto simEnd = std::chrono::steady_clock::now();
+
+        FlushPending();   // 틱 동안 queueSend 로 쌓인 걸 세션당 1회 실제 전송
+
         auto tickEnd = std::chrono::steady_clock::now();
 
         auto simDur   = std::chrono::duration_cast<std::chrono::nanoseconds>(simEnd - tickStart).count();
@@ -101,6 +107,25 @@ int main() {
         bench.flushSamples.push_back(flushDur);
         bench.tickCount++;
         bench.totalTime += duration;
+        totalTicks++;
+        win3.push_back(duration);
+
+        // --- 3초마다 간략 벤치마크 (틱 전체 시간) ---
+        if (tickEnd - lastTickLog >= std::chrono::seconds(3)) {
+            std::sort(win3.begin(), win3.end());
+            long long sum = 0;
+            for (long long x : win3) sum += x;
+            double avgMs = sum / (double)win3.size() / 1'000'000.0;
+            size_t p99i = (size_t)(win3.size() * 0.99);
+            if (p99i >= win3.size()) p99i = win3.size() - 1;
+            double p99Ms = win3[p99i] / 1'000'000.0;
+            double maxMs = win3.back() / 1'000'000.0;
+            std::cout << std::format(
+                "[3s] tick {:>8} | ticks {:>4} | avg {:>7.3f} | p99 {:>7.3f} | max {:>7.3f}  (ms)\n",
+                totalTicks, win3.size(), avgMs, p99Ms, maxMs);
+            win3.clear();
+            lastTickLog = tickEnd;
+        }
 
         // --- 60초마다 벤치마크 결과 출력 ---
         if (tickEnd - lastReportTime >= std::chrono::seconds(60)) {

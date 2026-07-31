@@ -542,15 +542,7 @@ func (g *Game) setDisconnected(err error) {
 	}
 }
 
-// ---- 시야(FOV): 재귀 그림자캐스팅 ----
-
-// 8개 옥탄트 변환 계수 (Björn Bergström 알고리즘)
-var fovMult = [4][8]int{
-	{1, 0, 0, -1, -1, 0, 0, 1},
-	{0, 1, -1, 0, 0, -1, 1, 0},
-	{0, 1, 1, 0, 0, -1, -1, 0},
-	{1, 0, 0, 1, -1, 0, 0, -1},
-}
+// ---- 시야(FOV): 셀 단위 가림 판정 ----
 
 // 셀 (cx,cy) 가 벽인지. 맵 밖은 벽으로 취급해 시야를 막는다.
 func (g *Game) wallAt(cx, cy int) bool {
@@ -560,91 +552,120 @@ func (g *Game) wallAt(cx, cy int) bool {
 	return g.wallSet[[2]int{cx, cy}]
 }
 
-// (cx,cy) 를 중심으로 radius(셀 단위) 안에서 벽에 막히지 않고 보이는 셀 집합을 구한다.
-// g.mu 를 잡은 상태에서 호출해야 한다 (wallSet / cols / rows 를 읽음).
-func (g *Game) computeVisible(cx, cy, radius int) map[[2]int]bool {
-	visible := map[[2]int]bool{{cx, cy}: true}
-	for oct := 0; oct < 8; oct++ {
-		g.castLight(cx, cy, 1, 1.0, 0.0, radius,
-			fovMult[0][oct], fovMult[1][oct], fovMult[2][oct], fovMult[3][oct], visible)
-	}
+// (mcx,mcy) 를 중심으로 radius(셀 단위) 안에서 보이는 셀 집합을 구한다.
+// 바닥 셀은 "네 꼭짓점이 모두 보일 때만" 밝게 한다. 즉 벽에 조금이라도 가려지면
+// 어둡게 처리해, 비스듬한 각도에서 벽 뒤가 새어 보이던 문제를 없앤다.
+// 벽 셀은 한 꼭짓점이라도 보이면 벽면을 표시한다(밝게).
+// g.mu 를 잡은 상태에서 호출해야 한다 (wallSet / cols / rows / cellSize 를 읽음).
+func (g *Game) computeVisible(mcx, mcy, radius int) map[[2]int]bool {
+	cs := g.cellSize
+	// 시점 대상의 위치 = 자기 셀 중심
+	px := float32(mcx)*cs + cs/2
+	py := float32(mcy)*cs + cs/2
 
-	// 대각선 벽 틈으로 시선이 새는 것 제거.
-	// 바닥 셀은 플레이어 쪽 직교 이웃 중 열려있고 보이는 셀이 하나라도 있어야 유효.
-	// (판정은 삭제 전 원본 집합 기준으로 해 순서 의존성을 없앤다)
-	var toRemove [][2]int
-	for cell := range visible {
-		x, y := cell[0], cell[1]
-		if (x == cx && y == cy) || g.wallAt(x, y) {
-			continue // 자기 셀과 벽면은 그대로 둔다
-		}
-		open := false
-		if x != cx { // x축으로 플레이어에 한 칸 가까운 이웃
-			nx := x + 1
-			if cx < x {
-				nx = x - 1
+	const eps = 0.01
+	inner := cs/2 - eps // 셀 안쪽으로 살짝 당긴 꼭짓점 (경계 모호성 제거)
+
+	visible := map[[2]int]bool{{mcx, mcy}: true}
+	for dy := -radius; dy <= radius; dy++ {
+		for dx := -radius; dx <= radius; dx++ {
+			if dx*dx+dy*dy > radius*radius {
+				continue
 			}
-			if visible[[2]int{nx, y}] && !g.wallAt(nx, y) {
-				open = true
+			cx, cy := mcx+dx, mcy+dy
+			if cx == mcx && cy == mcy {
+				continue
+			}
+			ccx := float32(cx)*cs + cs/2
+			ccy := float32(cy)*cs + cs/2
+
+			if g.wallAt(cx, cy) {
+				// 벽: 네 꼭짓점 중 하나라도 보이면 벽면 표시
+				corners := [4][2]float32{
+					{ccx - inner, ccy - inner},
+					{ccx + inner, ccy - inner},
+					{ccx - inner, ccy + inner},
+					{ccx + inner, ccy + inner},
+				}
+				for _, c := range corners {
+					if g.segClear(px, py, c[0], c[1]) {
+						visible[[2]int{cx, cy}] = true
+						break
+					}
+				}
+			} else {
+				// 바닥: 셀 중심이 보이면 밝게. 그림자 폭이 벽 크기에 자연스럽게 맞는다.
+				if g.segClear(px, py, ccx, ccy) {
+					visible[[2]int{cx, cy}] = true
+				}
 			}
 		}
-		if !open && y != cy { // y축으로 플레이어에 한 칸 가까운 이웃
-			ny := y + 1
-			if cy < y {
-				ny = y - 1
-			}
-			if visible[[2]int{x, ny}] && !g.wallAt(x, ny) {
-				open = true
-			}
-		}
-		if !open {
-			toRemove = append(toRemove, cell)
-		}
-	}
-	for _, c := range toRemove {
-		delete(visible, c)
 	}
 	return visible
 }
 
-func (g *Game) castLight(cx, cy, row int, start, end float64, radius, xx, xy, yx, yy int, visible map[[2]int]bool) {
-	if start < end {
-		return
+// segClear 는 (px,py)→(tx,ty) 직선이 중간 벽 셀을 지나지 않으면 true 를 반환한다.
+// 시작 셀과 목표 셀은 검사에서 제외한다(목표 셀에 도달하면 통과로 본다).
+// 서버 Map::HasLineOfSight 와 동일한 격자 순회(DDA)로 지나는 셀만 본다.
+func (g *Game) segClear(px, py, tx, ty float32) bool {
+	cs := float64(g.cellSize)
+	cx := int(math.Floor(float64(px) / cs))
+	cy := int(math.Floor(float64(py) / cs))
+	ex := int(math.Floor(float64(tx) / cs))
+	ey := int(math.Floor(float64(ty) / cs))
+	if cx == ex && cy == ey {
+		return true
 	}
-	var newStart float64
-	for j := row; j <= radius; j++ {
-		dx, dy := -j-1, -j
-		blocked := false
-		for dx <= 0 {
-			dx++
-			// dx,dy 를 실제 맵 좌표로 변환
-			X, Y := cx+dx*xx+dy*xy, cy+dx*yx+dy*yy
-			lSlope := (float64(dx) - 0.5) / (float64(dy) + 0.5)
-			rSlope := (float64(dx) + 0.5) / (float64(dy) - 0.5)
-			if start < rSlope {
-				continue
-			} else if end > lSlope {
-				break
-			}
-			if dx*dx+dy*dy < radius*radius {
-				visible[[2]int{X, Y}] = true
-			}
-			if blocked {
-				if g.wallAt(X, Y) {
-					newStart = rSlope
-					continue
-				}
-				blocked = false
-				start = newStart
-			} else if g.wallAt(X, Y) && j < radius {
-				// 벽을 만남: 이 뒤로는 자식 스캔에 위임
-				blocked = true
-				g.castLight(cx, cy, j+1, start, lSlope, radius, xx, xy, yx, yy, visible)
-				newStart = rSlope
-			}
+
+	dx := float64(tx - px)
+	dy := float64(ty - py)
+	stepX, stepY := 0, 0
+	if dx > 0 {
+		stepX = 1
+	} else if dx < 0 {
+		stepX = -1
+	}
+	if dy > 0 {
+		stepY = 1
+	} else if dy < 0 {
+		stepY = -1
+	}
+
+	inf := math.Inf(1)
+	tDeltaX, tDeltaY := inf, inf
+	if stepX != 0 {
+		tDeltaX = cs / math.Abs(dx)
+	}
+	if stepY != 0 {
+		tDeltaY = cs / math.Abs(dy)
+	}
+
+	tMaxX := inf
+	if stepX > 0 {
+		tMaxX = (float64(cx+1)*cs - float64(px)) / math.Abs(dx)
+	} else if stepX < 0 {
+		tMaxX = (float64(px) - float64(cx)*cs) / math.Abs(dx)
+	}
+	tMaxY := inf
+	if stepY > 0 {
+		tMaxY = (float64(cy+1)*cs - float64(py)) / math.Abs(dy)
+	} else if stepY < 0 {
+		tMaxY = (float64(py) - float64(cy)*cs) / math.Abs(dy)
+	}
+
+	for {
+		if tMaxX < tMaxY {
+			cx += stepX
+			tMaxX += tDeltaX
+		} else {
+			cy += stepY
+			tMaxY += tDeltaY
 		}
-		if blocked {
-			break
+		if cx == ex && cy == ey {
+			return true
+		}
+		if g.wallAt(cx, cy) {
+			return false
 		}
 	}
 }
