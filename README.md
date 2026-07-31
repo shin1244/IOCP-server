@@ -67,41 +67,20 @@
 
 양쪽 모두 **틱당 세션 1회 배치 송신**(`queueSend` → `FlushPending`)으로 통일한 뒤 다시 쟀습니다. 그러자 결과가 뒤집혀, **전 구간에서 IOCP가 앞섰고 부하가 커질수록 격차가 벌어졌습니다(6.8% → 12.3%)**.
 
-<br/>
+<p align="center">
+  <img src="./images/experiment1-graph.png" width="720" alt="I/O 모델 벤치마크: IOCP vs WSAPoll" />
+</p>
 
-<!-- ▼ 그래프와 표를 한 행(좌/우)에 나란히 배치하는 테두리 없는 테이블 -->
-<table border="0" style="border-collapse: collapse; border: none; width: 100%;">
-  <tr style="border: none;">
-    <!-- 좌측: 그래프 이미지 -->
-    <td width="50%" align="center" style="border: none; vertical-align: middle; padding-right: 12px;">
-<img src="images/experiment1-graph.png" width="500">
-    </td>
-    <!-- 우측: 수치 비교 테이블 -->
-    <td width="50%" align="center" style="border: none; vertical-align: middle; padding-left: 12px;">
-      <table style="width: 100%; text-align: center; font-size: 0.9em;">
-        <thead>
-          <tr>
-            <th>동접(봇)</th>
-            <th>WSAPoll</th>
-            <th>IOCP</th>
-            <th>격차</th>
-            <th>격차 %</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td>500</td><td>14.09</td><td>13.14</td><td><strong>+0.96</strong></td><td>6.8%</td></tr>
-          <tr><td>1000</td><td>31.53</td><td>28.92</td><td><strong>+2.61</strong></td><td>8.3%</td></tr>
-          <tr><td>2000</td><td>56.53</td><td>51.33</td><td><strong>+5.21</strong></td><td>9.2%</td></tr>
-          <tr><td>3000</td><td>88.66</td><td>77.99</td><td><strong>+10.68</strong></td><td>12.0%</td></tr>
-          <tr><td>4000</td><td>121.02</td><td>108.07</td><td><strong>+12.96</strong></td><td>10.7%</td></tr>
-          <tr><td>5000</td><td>151.41</td><td>132.81</td><td><strong>+18.60</strong></td><td>12.3%</td></tr>
-        </tbody>
-      </table>
-    </td>
-  </tr>
-</table>
+| 동접(봇) | WSAPoll | IOCP | 격차 | 격차 % |
+| --: | --: | --: | --: | --: |
+| 500 | 14.09 | 13.14 | **+0.96** | 6.8% |
+| 1000 | 31.53 | 28.92 | **+2.61** | 8.3% |
+| 2000 | 56.53 | 51.33 | **+5.21** | 9.2% |
+| 3000 | 88.66 | 77.99 | **+10.68** | 12.0% |
+| 4000 | 121.02 | 108.07 | **+12.96** | 10.7% |
+| 5000 | 151.41 | 132.81 | **+18.60** | 12.3% |
 
-<br/>
+<sub>단위 ms · 동일 부하 60초 평균 틱</sub>
 
 > ⚠️ 절대적인 틱 시간은 두 방식 모두 게임 로직 연산 부하로 인해 **33ms 예산을 초과**합니다. 이 실험이 말하는 건 "같은 로직을 얼마나 효율적으로 처리하느냐"이지 "몇 명을 수용하느냐"가 아닙니다.
 
@@ -123,42 +102,19 @@
 
 "어쩔 수 없다"로 넘기려다, 락을 최소화할 방법을 찾던 중 더블 스왑 버퍼를 알게 됐습니다. 게임 스레드는 **프레임당 `Swap()` 한 번**으로 back 버퍼를 통째로 가져오고, 처리는 **락 없이** 합니다. 스왑은 포인터만 교체하는 **O(1)** 이라, 락 유지 시간도 배치 크기와 무관하게 일정합니다.
 
-<br/>
+<p align="center">
+  <img src="./images/experiment2-graph.png" width="720" alt="메시지 큐 방식별 프레임 타임 분포: 이벤트 큐 vs 더블 스왑" />
+</p>
 
-<!-- ▼ 그래프와 표를 한 행(좌/우)에 나란히 배치하는 테두리 없는 테이블 -->
-<table border="0" style="border-collapse: collapse; border: none; width: 100%;">
-  <tr style="border: none;">
-    <!-- 좌측: 그래프 이미지 -->
-    <td width="50%" align="center" style="border: none; vertical-align: middle; padding-right: 12px;">
-<img src="images/experiment2-graph.png" width="500">
-    </td>
-    <!-- 우측: 수치 비교 테이블 -->
-    <td width="50%" align="center" style="border: none; vertical-align: middle; padding-left: 12px;">
-      <table style="width: 100%; text-align: center; font-size: 0.9em;">
-        <thead>
-          <tr>
-            <th>지표</th>
-            <th>이벤트 큐</th>
-            <th>더블 스왑</th>
-            <th>개선</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td>avg</td><td>15.64</td><td>13.14</td><td>–</td></tr>
-          <tr><td>p50</td><td>13.49</td><td>12.28</td><td>–</td></tr>
-          <tr><td><strong>p99</strong></td><td>41.83</td><td>21.83</td><td>예산 초과 → <strong>이하</strong></td></tr>
-          <tr><td><strong>p99.9</strong></td><td>77.84</td><td>28.91</td><td>예산 초과 → <strong>이하</strong></td></tr>
-          <tr><td><strong>max</strong></td><td>83.93</td><td>49.62</td><td><strong>−41%</strong></td></tr>
-        </tbody>
-      </table>
-      <div style="text-align: right; font-size: 0.8em; margin-top: 4px; color: #888;">
-        단위 ms · 동일 부하 60초 측정
-      </div>
-    </td>
-  </tr>
-</table>
+| 지표 | 이벤트 큐 | 더블 스왑 | 개선 |
+| :-- | --: | --: | :-- |
+| avg | 15.64 | 13.14 | – |
+| p50 | 13.49 | 12.28 | – |
+| **p99** | 41.83 | 21.83 | 예산 초과 → **이하** |
+| **p99.9** | 77.84 | 28.91 | 예산 초과 → **이하** |
+| **max** | 83.93 | 49.62 | **−41%** |
 
-<br/>
+<sub>단위 ms · 동일 부하 60초 측정</sub>
 
 소비자 쪽 락 획득이 **메시지당 → 프레임당**으로 줄면서, **피크 프레임 타임(max)이 83.9ms → 49.6ms**, **p99가 41.8ms → 21.8ms**로 절반 가까이 떨어졌습니다. 무엇보다 이벤트 큐에서 **33ms 예산을 넘던 p99·p99.9가 더블 스왑에서는 예산 안으로 들어왔습니다.**
 
