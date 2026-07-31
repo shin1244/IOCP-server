@@ -74,7 +74,7 @@
   <tr style="border: none;">
     <!-- 좌측: 그래프 이미지 -->
     <td width="50%" align="center" style="border: none; vertical-align: middle; padding-right: 12px;">
-      <img width="100%" style="max-width: 500px; height: auto;" alt="I/O Model Benchmark Graph" src="./images/experiment1-graph.png" />
+<img src="images/experiment1-graph.png" width="500">
     </td>
     <!-- 우측: 수치 비교 테이블 -->
     <td width="50%" align="center" style="border: none; vertical-align: middle; padding-left: 12px;">
@@ -130,7 +130,7 @@
   <tr style="border: none;">
     <!-- 좌측: 그래프 이미지 -->
     <td width="50%" align="center" style="border: none; vertical-align: middle; padding-right: 12px;">
-      <img width="100%" style="max-width: 500px; height: auto;" alt="Double Swap Buffer Benchmark Graph" src="./images/experiment2-graph.png" />
+<img src="images/experiment2-graph.png" width="500">
     </td>
     <!-- 우측: 수치 비교 테이블 -->
     <td width="50%" align="center" style="border: none; vertical-align: middle; padding-left: 12px;">
