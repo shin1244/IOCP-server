@@ -40,7 +40,9 @@
 ## 아키텍처
 
 <p align="center">
-<img width="1536" height="1024" alt="image" src="https://github.com/user-attachments/assets/b65967d7-d010-493f-81f2-037206a767a9" />
+<img width="1121" height="672" alt="image" src="https://github.com/user-attachments/assets/dee3a934-2c1d-47ed-9506-c06eb10d1301" />
+
+
 
 
 
