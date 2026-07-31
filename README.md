@@ -13,11 +13,11 @@
 
 <p align="center">
   <img src="https://github.com/user-attachments/assets/2fd61d01-0b96-4e7d-8aba-fbf2f89c748b"
-       width="420"
+       width="400"
        alt="플레이 화면" />
   &nbsp;&nbsp;&nbsp;
   <img src="https://github.com/user-attachments/assets/e925ef4a-b155-4562-a709-92470e13a23c"
-       width="420"
+       width="400"
        alt="서버 통계" />
 </p>
 <p align="center">
