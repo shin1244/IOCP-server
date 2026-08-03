@@ -11,9 +11,8 @@
        width="400"
        alt="플레이 화면" />
   &nbsp;&nbsp;&nbsp;
-  <img src="https://github.com/user-attachments/assets/e925ef4a-b155-4562-a709-92470e13a23c"
-       width="400"
-       alt="서버 통계" />
+<img width="400" height="272" alt="통계 화면" src="https://github.com/user-attachments/assets/bfe818e1-9118-4c71-a30c-c2d88a92fcee" />
+
 </p>
 <p align="center">
   <sub><strong>▲  Go 언어 기반 그래픽 클라이언트 플레이 화면   </strong>   &nbsp;|&nbsp;   <strong>    서버 실시간 Tick/I/O 벤치마크 모니터링 콘솔 ▲</strong></sub>
