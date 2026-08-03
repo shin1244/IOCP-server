@@ -236,3 +236,58 @@ for (auto& p : buffer) {    // 이 루프 전체가 락 없이 동작
 | **적용 결론** | 크기가 예측 가능한 일반 게임 패킷 | 대용량 패킷 처리가 필요한 **초기화 전송 파이프라인**에 적합 |
 
 처음에는 재할당이 없는 링 버퍼가 항상 더 좋은 선택이라고 생각했습니다. 하지만 실제 워크로드에서는 성능 차이가 거의 없었고, 오히려 대용량 패킷에서는 고정 크기라는 특성이 제약이 될 수 있었습니다. 자료구조는 이론적 성능보다 **실제 워크로드와 데이터 특성**을 기준으로, 성능뿐 아니라 안정성과 예외 상황까지 함께 고려해 선택해야 한다는 점을 배웠습니다.
+
+<details>
+<summary><b>오버플로우 시 동작 차이 — 코드로 보기</b></summary>
+
+<br/>
+
+**링 버퍼 — 공간이 모자라면 패킷을 통째로 거부**
+
+```cpp
+bool RingBuffer::Write(const char* data, int len) {
+    if (len > GetFreeSize()) return false;   // ← 상한 초과 시 '이 패킷 전체'를 드랍 (부분 기록 X)
+
+    int rightSize = BUFFER_SIZE - tail;
+    if (len <= rightSize) {
+        memcpy(&buffer[tail], data, len);
+    } else {                                  // 끝을 넘으면 앞으로 돌아가 wrap
+        memcpy(&buffer[tail], data, rightSize);
+        memcpy(&buffer[0], data + rightSize, len - rightSize);
+    }
+    OnWrite(len);
+    return true;
+}
+```
+
+**가변 버퍼 — 모자라면 압축 후 resize, 항상 성공**
+
+```cpp
+bool VectorBuffer::Write(const char* data, int len) {
+    Reserve(len);                            // 공간이 부족하면 확장
+    memcpy(buffer.data() + tail, data, len);
+    tail += len;
+    return true;                             // 유실 없음
+}
+
+void VectorBuffer::Reserve(int len) {
+    if (GetLinearFreeSize() >= len) return;
+
+    int used = GetUsedSize();
+    memmove(buffer.data(), buffer.data() + head, used);   // 앞으로 압축
+    head = 0; tail = used;
+
+    if (GetLinearFreeSize() < len) buffer.resize(tail + len);  // 그래도 모자라면 resize
+}
+```
+
+```cpp
+void queueSend(Session* s, const char* data, int len) {
+    s->sendLock.lock();
+    s->sendBuffer.Write(data, len);   // ← 링버퍼 빌드: false를 무시 → 조용한 유실
+    s->sendLock.unlock();
+    ...
+}
+```
+
+</details>
