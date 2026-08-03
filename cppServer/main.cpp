@@ -8,6 +8,7 @@ int PickRoom(std::vector<World>& worlds) {
 }
 
 int main() {
+    timeBeginPeriod(1);
     WSADATA wsa;
     WSAStartup(MAKEWORD(2, 2), &wsa);
     std::cout << "Winsock ready\n";
@@ -165,6 +166,8 @@ int main() {
         std::this_thread::sleep_until(tickStart + std::chrono::milliseconds(TICK_MS));
     }
     
+    timeEndPeriod(1);
+
     WSACleanup();
     return 0;
 }
