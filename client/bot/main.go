@@ -39,7 +39,7 @@ const worldSize = 2500
 var connected int64 // 현재 연결에 성공해 살아있는 봇 수 (통계용)
 
 func main() {
-	addr := flag.String("addr", "10.255.253.175:5050", "서버 주소")
+	addr := flag.String("addr", "localhost:5050", "서버 주소")
 	n := flag.Int("n", 4, "봇 개수")
 	fire := flag.Bool("fire", false, "이동뿐 아니라 사격도 할지")
 	malRatio := flag.Float64("mal", 0, "악성 봇 비율 [0,1]. 완성되지 않는 거대 패킷을 흘려보내 수신 버퍼를 압박한다")

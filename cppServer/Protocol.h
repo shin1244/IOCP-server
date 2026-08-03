@@ -31,23 +31,6 @@ struct Vec2Packet {
     float y;
 };
 
-// RecvPacket::body holds everything after the header, so the server parses
-// AuthReqBody while the client sends the full AuthReq.
-struct AuthReqBody {
-    char username[MAX_USERNAME];
-    char password[MAX_PASSWORD];
-};
-
-struct AuthReq {
-    PacketHeader h;
-    AuthReqBody body;
-};
-
-struct AuthRes {
-    PacketHeader h;
-    unsigned short result;
-    int accountId;
-};
 #pragma pack(pop)
 
 enum class AuthResult : unsigned short { 

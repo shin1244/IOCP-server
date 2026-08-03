@@ -57,7 +57,7 @@ int main() {
     constexpr int   TICK_MS = 33;    
     constexpr float TICK_DT = TICK_MS / 1000.0f;
 
-    std::vector<World> worlds(1);
+    std::vector<World> worlds(10);
     for (auto& w : worlds) w.Init();
 
     std::vector<RecvPacket> buffer;
@@ -110,7 +110,7 @@ int main() {
         totalTicks++;
         win3.push_back(duration);
 
-        // --- 3초마다 간략 벤치마크 (틱 전체 시간) ---
+        /*// --- 3초마다 간략 벤치마크 (틱 전체 시간) ---
         if (tickEnd - lastTickLog >= std::chrono::seconds(3)) {
             std::sort(win3.begin(), win3.end());
             long long sum = 0;
@@ -125,7 +125,7 @@ int main() {
                 totalTicks, win3.size(), avgMs, p99Ms, maxMs);
             win3.clear();
             lastTickLog = tickEnd;
-        }
+        }*/
 
         // --- 60초마다 벤치마크 결과 출력 ---
         if (tickEnd - lastReportTime >= std::chrono::seconds(60)) {
