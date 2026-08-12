@@ -1,9 +1,6 @@
 #pragma once
 #include<vector>
 
-constexpr int MAX_USERNAME = 32;
-constexpr int MAX_PASSWORD = 64;
-
 #pragma pack(push, 1)
 struct PacketHeader { unsigned short size; unsigned short id; };
 
