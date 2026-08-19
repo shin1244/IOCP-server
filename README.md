@@ -14,6 +14,8 @@ Windows **IOCP**로 구현한 C++ 멀티스레드 게임 서버<br/>
 
 <sub>**▲ Go 언어 기반 그래픽 클라이언트 플레이 화면**&nbsp;&nbsp;|&nbsp;&nbsp;**서버 실시간 Tick I/O 벤치마크 모니터링 콘솔 ▲**</sub>
 
+🎬 **[데모 영상](https://youtu.be/LKaLjPysm4k)**
+
 </div>
 
 ---
