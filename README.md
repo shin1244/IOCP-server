@@ -4,7 +4,7 @@
 
 ### 게임 서버에서 관행처럼 쓰이는 세 가지 구조를<br/>동일한 서버에 직접 구현해 비교하고 측정했습니다.
 
-`C++` `Windows IOCP` `30Hz` `AOI` `최대 100인 권위 서버`
+`C++` `Windows IOCP` `30Hz` `AOI`
 
 🎬 **[데모 영상](https://youtu.be/LKaLjPysm4k)**
 
